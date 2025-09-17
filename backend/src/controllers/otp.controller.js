@@ -60,7 +60,7 @@ export const verifyotp = async (req, res) => {
 
   try {
     const otpData = req.session.otpData;
-    console.log(otpData)
+    console.log("hi",otpData)
  
     if (!otpData) { 
       return res.json({ success: false, message: "No OTP session found. Please request a new OTP" });
