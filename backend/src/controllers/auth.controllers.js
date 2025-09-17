@@ -1,16 +1,11 @@
-import user from "../models/user.js"
-import bcrypt from "bcryptjs"
-import jwt from "jsonwebtoken"
-import streamClient from "../lib/stream.js"
-import cloudinary from "../configure/cloudinary.js"
-import {transporter} from "../configure/nodemailerConfigure.js"
+import user from "../models/user.js";
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
+import streamClient from "../lib/stream.js";
+import cloudinary from "../configure/cloudinary.js";
+import { transporter } from "../configure/nodemailerConfigure.js";
 
-/**
- * Handles user signup
- * - Validates input
- * - Generates OTP and stores it in DB
- * - Saves pending email in cookie
- */
+// Signup user, generate OTP, and send verification email
 export const signup = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -18,7 +13,6 @@ export const signup = async (req, res) => {
     if (!email || !password)
       return res.status(400).json({ success: false, message: "All fields are required" });
 
-    // Validate email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i;
     if (!emailRegex.test(email)) return res.status(400).json({ success: false, message: "Invalid email" });
 
@@ -30,11 +24,9 @@ export const signup = async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 12);
 
-    // Generate OTP
     const otp = Math.floor(100000 + Math.random() * 900000);
     const expiresAt = Date.now() + 5 * 60 * 1000;
 
-    // Send OTP email
     await transporter.sendMail({
       from: process.env.SENDER_EMAIL,
       to: email,
@@ -42,30 +34,24 @@ export const signup = async (req, res) => {
       text: `Your OTP is ${otp}. Expires in 5 minutes.`,
     });
 
-    // Create user (unverified)
     const newUser = new user({
       email,
       password: hashedPassword,
       isVerified: false,
       isOnborded: false,
-      verificationOtp:otp,
-      verificationOtpExpiresAt:expiresAt
+      verificationOtp: otp,
+      verificationOtpExpiresAt: expiresAt,
     });
     await newUser.save();
+
+    res.cookie("email", email);
     return res.json({ success: true, message: "Signup successful! OTP sent to your email" });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
   }
 };
 
-
-/**
- * Handles user login
- * - Validates input
- * - Checks user existence
- * - Compares password
- * - Sets JWT cookie
- */
+// Login user, verify password, and set JWT cookie
 export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -73,7 +59,6 @@ export const login = async (req, res) => {
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i;
     if (!emailRegex.test(email)) return res.status(400).json({ success: false, message: "Invalid email format" });
-
 
     const findUser = await user.findOne({ email });
     if (!findUser) return res.status(404).json({ success: false, message: "User does not exist" });
@@ -87,28 +72,23 @@ export const login = async (req, res) => {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "strict",
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      maxAge: 7 * 24 * 60 * 60 * 1000,
     });
- 
-   findUser.isLogged=true;
-   await findUser.save()
 
+    findUser.isLogged = true;
+    await findUser.save();
 
     return res.json({
       success: true,
       message: "Login successfully",
       user: { _id: findUser._id, name: findUser.name, email: findUser.email },
     });
-
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
-}
+};
 
-/**
- * Handles user logout
- * - Clears JWT cookie
- */
+// Logout user by clearing JWT cookie
 export const logout = async (req, res) => {
   try {
     res.clearCookie("jwt");
@@ -116,50 +96,41 @@ export const logout = async (req, res) => {
   } catch (error) {
     res.json({ success: false, message: error.message });
   }
-}
+};
 
-/**
- * Handles user onboarding
- * - Updates user profile info
- * - Marks onboarding complete
- * - Upserts user in Stream
- */
+// Onboard user: update profile info, upload avatar, and upsert Stream user
 export const onboard = async (req, res) => {
   const { name, bio, nativeLanguage, learningLanguage } = req.body;
   try {
-   
     if (!name || !bio || !nativeLanguage || !learningLanguage) 
       return res.json({ success: false, message: "Please enter the required fields" });
- 
+
     const currentUser = req.user;
-    let avatarUrl=null;
+    let avatarUrl = null;
 
-    if(req.file){
-      const uploadResponse=await cloudinary.uploader.upload(req.file.path,{
-         folder:"profile-pics",
-         resource_type:"image",
-
+    if (req.file) {
+      const uploadResponse = await cloudinary.uploader.upload(req.file.path, {
+        folder: "profile-pics",
+        resource_type: "image",
       });
-  
-      avatarUrl=uploadResponse.secure_url;
+      avatarUrl = uploadResponse.secure_url;
     }
 
     const updatedUser = await user.findByIdAndUpdate(
       currentUser._id,
-      { name, bio, nativeLanguage, learningLanguage,profilPic:avatarUrl, isOnborded: true },
+      { name, bio, nativeLanguage, learningLanguage, profilPic: avatarUrl, isOnborded: true },
       { new: true }
     );
-    await updatedUser.save()
+    await updatedUser.save();
 
     const upsertStreamUser = async (newUser) => {
       try {
         await streamClient.upsertUser({
-          id: newUser.id.toString(),  
+          id: newUser.id.toString(),
           name: newUser.name || "Anonymous",
           email: newUser.email,
           image: newUser.profilPic || undefined,
         });
-        console.log(`User streamed for ${newUser.id}`);
       } catch (error) {
         console.error("Error while upserting", error);
       }
@@ -171,4 +142,4 @@ export const onboard = async (req, res) => {
   } catch (error) {
     res.json({ success: false, message: error.message });
   }
-}
+};

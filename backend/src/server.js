@@ -7,7 +7,7 @@ import cookieparse from "cookie-parser"
 import session from "express-session";
 import cors from "cors"
 import { connectDb } from "./lib/db.js";
-import MongoStore from "connect-mongo"
+
 
 
 dotenv.config();

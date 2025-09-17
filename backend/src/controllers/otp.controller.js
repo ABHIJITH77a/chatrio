@@ -1,25 +1,22 @@
 import user from "../models/user.js";
 import streamClient from "../lib/stream.js";
-import jwt from "jsonwebtoken"
+import jwt from "jsonwebtoken";
 import { transporter } from "../configure/nodemailerConfigure.js";
 
+// Generate and resend OTP for email verification
 export const otpgenerate = async (req, res) => {
-  const { email } = req.session.otpData;
-  console.log("loiuy",email)
-  
+  const { email } = req.cookies;
+
   try {
     if (!email) {
       return res.json({ success: false, message: "Email is required" });
     }
 
-    // Check if user exists
     const existingUser = await user.findOne({ email });
-    
     if (!existingUser) {
       return res.json({ success: false, message: "User not found" });
     }
 
-    // Check if user is already verified
     if (existingUser.isVerified) {
       return res.json({ success: false, message: "User is already verified" });
     }
@@ -27,33 +24,35 @@ export const otpgenerate = async (req, res) => {
     const otp = Math.floor(100000 + Math.random() * 900000);
     const expiresAt = Date.now() + 5 * 60 * 1000; // 5 minutes
 
-    const mail = {
+    await transporter.sendMail({
       from: process.env.SENDER_EMAIL,
       to: email,
       subject: "OTP Resent - Email Verification",
-      text: `Your new OTP for email verification is: ${otp}. This OTP will expire in 5 minutes.`
-    };
+      text: `Your new OTP for email verification is: ${otp}. This OTP will expire in 5 minutes.`,
+    });
 
-    await transporter.sendMail(mail);
-    console.log("send")
+    existingUser.verificationOtp = otp;
+    existingUser.verificationOtpExpiresAt = expiresAt;
+    await existingUser.save();
 
-    // Store in session
+    // Store OTP info in session
     req.session.otpData = {
       userId: existingUser._id.toString(),
       email,
       otp,
       expiresAt,
-      isSignup: false // Flag to identify this is for resend
+      isSignup: false,
     };
-    
-    return res.json({ success: true, message: "OTP sent successfully" });
 
+    res.clearCookie(); // Clear previous cookies if any
+
+    return res.json({ success: true, message: "OTP sent successfully" });
   } catch (error) {
     return res.status(400).json({ success: false, message: error.message });
   }
 };
 
-// ============ OTP VERIFICATION ============
+// Verify OTP and mark user as verified
 export const verifyOtp = async (req, res) => {
   try {
     const { dotp } = req.body;
@@ -64,32 +63,30 @@ export const verifyOtp = async (req, res) => {
 
     const currentUser = await user.findOne({
       verificationOtp: dotp,
-      verificationOtpExpiresAt: { $gt: Date.now() }, // not expired
+      verificationOtpExpiresAt: { $gt: Date.now() }, // Check not expired
     });
 
     if (!currentUser) {
       return res.json({ success: false, message: "Invalid or expired OTP" });
     }
 
-    // ✅ Mark verified & clear OTP fields
+    // Mark user as verified and clear OTP fields
     currentUser.isVerified = true;
     currentUser.verificationOtp = undefined;
     currentUser.verificationOtpExpiresAt = undefined;
     await currentUser.save();
 
-    // ✅ Issue JWT
-   let token;
-try {
-  token = jwt.sign(
-    { userId: currentUser._id },
-    process.env.JWTSECRET,
-    { expiresIn: "7d" }
-  );
-} catch (err) {
-  console.error("JWT Error:", err);
-  return res.status(500).json({ success: false, message: "JWT generation failed" });
-}
-
+    // Generate JWT for user
+    let token;
+    try {
+      token = jwt.sign(
+        { userId: currentUser._id },
+        process.env.JWTSECRET,
+        { expiresIn: "7d" }
+      );
+    } catch (err) {
+      return res.status(500).json({ success: false, message: "JWT generation failed" });
+    }
 
     res.cookie("jwt", token, {
       maxAge: 7 * 24 * 60 * 60 * 1000,
@@ -98,7 +95,7 @@ try {
       sameSite: "strict",
     });
 
-    // ✅ Upsert in Stream
+    // Upsert user in Stream
     await streamClient.upsertUser({
       id: currentUser._id.toString(),
       name: currentUser.name || "Anonymous",
@@ -111,7 +108,6 @@ try {
       message: "OTP verified successfully!",
       user: currentUser,
     });
-
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
   }
