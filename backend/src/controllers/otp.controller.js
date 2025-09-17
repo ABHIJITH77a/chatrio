@@ -56,12 +56,12 @@ export const otpgenerate = async (req, res) => {
 // ============ OTP VERIFICATION ============
 export const verifyOtp = async (req, res) => {
   try {
-    const { otp } = req.body;
+    const { dotp } = req.body;
     
-    if (!otp) return res.json({ success: false, message: "Enter the otp" });
+    if (!dotp) return res.json({ success: false, message: "Enter the otp" });
 
     const currentUser = await user.findOne({ 
-      verificationOtp:otp,
+      verificationOtp:dotp,
       verificationOtpExpiresAt:{$gt:Date.now()}
      });
     if (!currentUser) return res.json({ success: false, message: "Invalid Otp" });
