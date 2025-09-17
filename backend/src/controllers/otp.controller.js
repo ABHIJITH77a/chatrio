@@ -56,7 +56,7 @@ export const otpgenerate = async (req, res) => {
 // ============ OTP VERIFICATION ============
 export const verifyotp = async (req, res) => {
   const userOtp  = req.body.dotp;
-  console.log(userOtp)
+ 
 
   try {
     const otpData = req.session.otpData;
