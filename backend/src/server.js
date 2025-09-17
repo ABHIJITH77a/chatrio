@@ -35,7 +35,7 @@ app.use(
 
 
 app.use(cors({
-     origin: "https://chatrio-qshq.onrender.com",
+     origin: "https://chatrio-1.onrender.com",
    credentials: true
 }))
 app.use(express.json());
