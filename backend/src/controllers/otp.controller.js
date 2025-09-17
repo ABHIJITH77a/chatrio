@@ -56,43 +56,46 @@ export const otpgenerate = async (req, res) => {
 // ============ OTP VERIFICATION ============
 export const verifyOtp = async (req, res) => {
   try {
-    const { dotp } = req.body;
+    const { otp } = req.body;
+    const email = req.cookies.pendingEmail; // email stored in cookie during signup
 
-    if (!req.cookies.otpData)
-      return res.json({ success: false, message: "OTP cookie not found. Please signup again." });
+    if (!email) return res.json({ success: false, message: "No email found in cookie" });
 
-    const otpData = JSON.parse(req.cookies.otpData);
-    const { email, otp, expiresAt, userId } = otpData;
+    const currentUser = await user.findOne({ email });
+    if (!currentUser) return res.json({ success: false, message: "User not found" });
 
-    if (!dotp) return res.json({ success: false, message: "OTP is required" });
-
-    if (dotp.toString() !== otp.toString())
+    // Compare OTP
+    if (otp.toString() !== currentUser.otp.toString()) {
       return res.json({ success: false, message: "Invalid OTP" });
+    }
 
-    if (expiresAt < Date.now())
-      return res.json({ success: false, message: "OTP expired. Please request a new one." });
-
-    // Mark user as verified
-    const userDoc = await user.findById(userId);
-    if (!userDoc) return res.json({ success: false, message: "User not found" });
-
-    userDoc.isVerified = true;
-    await userDoc.save();
+    // Mark verified
+    currentUser.isVerified = true;
+    await currentUser.save();
 
     // Clear cookie
-    res.clearCookie("otpData");
+    res.clearCookie("pendingEmail");
 
     // Generate JWT
-    const token = jwt.sign({ userId: userDoc._id }, process.env.JWTSECRET, { expiresIn: "7d" });
+    const token = jwt.sign({ userId: currentUser._id }, process.env.JWTSECRET, { expiresIn: "7d" });
     res.cookie("jwt", token, {
-      maxAge: 7 * 24 * 60 * 60 * 1000,
+      maxAge: 7*24*60*60*1000,
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      sameSite: "strict"
     });
 
-    return res.json({ success: true, message: "Account verified!", user: userDoc });
-  } catch (error) {
-    return res.status(500).json({ success: false, message: error.message });
+    // Upsert user in Stream
+    await streamClient.upsertUser({
+      id: currentUser._id.toString(),
+      name: currentUser.name || "Anonymous",
+      email: currentUser.email,
+      image: currentUser.avatar || undefined,
+    });
+
+    return res.json({ success: true, message: "OTP verified!", user: currentUser });
+
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
   }
 };
