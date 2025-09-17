@@ -5,14 +5,14 @@ const useAuthUser = () => {
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["authUser"],
     queryFn: getAuthUser,
-    retry: false, // don't spam retries on unauthorized
+    retry: false, 
   });
   console.log("ddddddd",data)
   return {
     isLoading,
     isError,
     error,
-    user: data?.user || null, // ✅ always either object or null
+    user: data?.user || null, 
   };
 };
 

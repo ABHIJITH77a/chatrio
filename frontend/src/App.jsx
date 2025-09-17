@@ -17,8 +17,6 @@ import { Toaster } from "react-hot-toast";
 
 
 const App = () => {
- const Navigate=useNavigate()
-  const {authUser}=useAuthUser()
 
  
   

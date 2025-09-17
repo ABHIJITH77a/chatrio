@@ -4,7 +4,6 @@ import { useState } from "react"
 import { useMutation ,useQueryClient} from "@tanstack/react-query"
 import { axiosInstance } from "../lib/axios"
 import { Link, useNavigate } from "react-router-dom"
-import { setAuthUser } from "../../store/slice"
 import { useDispatch } from "react-redux"
 
 
@@ -16,14 +15,14 @@ const[loginData,setLoginData]=useState({
   password:""
 })
 
-const queryclient=useQueryClient()
+const queryClient=useQueryClient()
 const {mutate,isPending,error}=useMutation({
   mutationFn:async()=>{
     const res= await axiosInstance.post("/auth/login",loginData)
     return res.data;
   },
   onSuccess:(data)=>{ 
-    dispatch(setAuthUser(data.user._id))
+     queryClient.invalidateQueries(["authUser"]);
     navigate ("/home")
    
 },

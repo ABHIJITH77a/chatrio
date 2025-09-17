@@ -2,16 +2,15 @@
 import { Navigate } from "react-router-dom";
 import useAuthUser from "../hooks/useAuthUser";
 
-
 export default function ProtectedRoute({ children }) {
-  const { user, isLoading } = useAuthUser();
+  const { user, isLoading, isError } = useAuthUser();
 
-  // while loading, show nothing or a loader
+  // 1️⃣ Wait for auth check
   if (isLoading) return <div>Loading...</div>;
 
-  // if no user after loading, redirect
-  if (!user) return <Navigate to="/" replace />;
+  // 2️⃣ If request failed AND no user → redirect
+  if (isError || !user) return <Navigate to="/" replace />;
 
-  // otherwise render protected content
+  // 3️⃣ Otherwise → show protected page
   return children;
 }

@@ -32,14 +32,7 @@ const Home = () => {
             Connect with friends, learn new languages, and grow together 🎉
           </p>
 
-          <div className="mt-8 flex flex-col md:flex-row gap-4">
-            <button className="px-6 py-3 rounded-xl bg-purple-600 hover:bg-purple-700 transition font-semibold text-lg shadow-lg">
-              Start Learning
-            </button>
-            <button className="px-6 py-3 rounded-xl border border-purple-400 hover:bg-purple-800 transition font-semibold text-lg">
-              Join Community
-            </button>
-          </div>
+          
         </main>
       </div>
     </div>
