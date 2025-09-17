@@ -57,34 +57,41 @@ export const otpgenerate = async (req, res) => {
 export const verifyOtp = async (req, res) => {
   try {
     const { dotp } = req.body;
-    
-    if (!dotp) return res.json({ success: false, message: "Enter the otp" });
 
-    const currentUser = await user.findOne({ 
-      verificationOtp:dotp,
-      verificationOtpExpiresAt:{$gt:Date.now()}
-     });
-    if (!currentUser) return res.json({ success: false, message: "Invalid Otp" });
+    if (!dotp) {
+      return res.json({ success: false, message: "Enter the OTP" });
+    }
 
-   
-
-    // Mark verified
-    currentUser.isVerified = true;
-    await currentUser.save();
-
-    // Clear cookie
-    res.clearCookie("pendingEmail");
-
-    // Generate JWT
-    const token = jwt.sign({ userId: currentUser._id }, process.env.JWTSECRET, { expiresIn: "7d" });
-    res.cookie("jwt", token, {
-      maxAge: 7*24*60*60*1000,
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict"
+    const currentUser = await user.findOne({
+      verificationOtp: dotp,
+      verificationOtpExpiresAt: { $gt: Date.now() }, // not expired
     });
 
-    // Upsert user in Stream
+    if (!currentUser) {
+      return res.json({ success: false, message: "Invalid or expired OTP" });
+    }
+
+    // ✅ Mark verified & clear OTP fields
+    currentUser.isVerified = true;
+    currentUser.verificationOtp = undefined;
+    currentUser.verificationOtpExpiresAt = undefined;
+    await currentUser.save();
+
+    // ✅ Issue JWT
+    const token = jwt.sign(
+      { userId: currentUser._id },
+      process.env.JWTSECRET,
+      { expiresIn: "7d" }
+    );
+
+    res.cookie("jwt", token, {
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+    });
+
+    // ✅ Upsert in Stream
     await streamClient.upsertUser({
       id: currentUser._id.toString(),
       name: currentUser.name || "Anonymous",
@@ -92,7 +99,11 @@ export const verifyOtp = async (req, res) => {
       image: currentUser.avatar || undefined,
     });
 
-    return res.json({ success: true, message: "OTP verified!", user: currentUser });
+    return res.json({
+      success: true,
+      message: "OTP verified successfully!",
+      user: currentUser,
+    });
 
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
