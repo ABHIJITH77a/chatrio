@@ -48,17 +48,10 @@ export const signup = async (req, res) => {
       password: hashedPassword,
       isVerified: false,
       isOnborded: false,
+      verificationOtp:otp,
+      verificationOtpExpiresAt:expiresAt
     });
     await newUser.save();
-
-    // Store OTP & email in **cookie**
-    res.cookie("otpData", JSON.stringify({ email, otp, expiresAt, userId: newUser._id.toString() }), {
-      maxAge: 5 * 60 * 1000, // 5 minutes
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-    });
-
     return res.json({ success: true, message: "Signup successful! OTP sent to your email" });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });

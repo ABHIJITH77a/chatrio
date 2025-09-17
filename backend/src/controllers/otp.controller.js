@@ -57,17 +57,16 @@ export const otpgenerate = async (req, res) => {
 export const verifyOtp = async (req, res) => {
   try {
     const { otp } = req.body;
-    const email = req.cookies.pendingEmail; // email stored in cookie during signup
+    
+    if (!otp) return res.json({ success: false, message: "Enter the otp" });
 
-    if (!email) return res.json({ success: false, message: "No email found in cookie" });
+    const currentUser = await user.findOne({ 
+      verificationOtp:otp,
+      verificationOtpExpiresAt:{$gt:Date.now()}
+     });
+    if (!currentUser) return res.json({ success: false, message: "Invalid Otp" });
 
-    const currentUser = await user.findOne({ email });
-    if (!currentUser) return res.json({ success: false, message: "User not found" });
-
-    // Compare OTP
-    if (otp.toString() !== currentUser.otp.toString()) {
-      return res.json({ success: false, message: "Invalid OTP" });
-    }
+   
 
     // Mark verified
     currentUser.isVerified = true;
