@@ -14,6 +14,10 @@ dotenv.config();
 
 const app=express()
 const port=process.env.PORT
+const allowedOrigins = [
+  "http://localhost:5173",          // local dev
+  "https://chatrio-1.onrender.com"  // deployed frontend on Render
+];
 
 
 
@@ -34,10 +38,7 @@ app.use(
 
 
 
-app.use(cors({
-     origin: "https://chatrio-1.onrender.com",
-   credentials: true
-}))
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieparse());
