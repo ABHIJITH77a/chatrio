@@ -54,93 +54,44 @@ export const otpgenerate = async (req, res) => {
 };
 
 // ============ OTP VERIFICATION ============
-export const verifyotp = async (req, res) => {
-  const userOtp  = req.body.dotp;
-  const {email}=req.body
- console.log("hello",email)
-
+export const verifyOtp = async (req, res) => {
   try {
-    const currentUser=await user.findOne({email})
-   console.log(currentUser)
-   
-    if (!userOtp) {
-      return res.json({ success: false, message: "OTP is required" });
-    }
+    const { dotp } = req.body;
 
-    // Check OTP
-    if (userOtp.toString() !== currentUser.otp.toString()) {
+    if (!req.cookies.otpData)
+      return res.json({ success: false, message: "OTP cookie not found. Please signup again." });
+
+    const otpData = JSON.parse(req.cookies.otpData);
+    const { email, otp, expiresAt, userId } = otpData;
+
+    if (!dotp) return res.json({ success: false, message: "OTP is required" });
+
+    if (dotp.toString() !== otp.toString())
       return res.json({ success: false, message: "Invalid OTP" });
-    }
-    // Check expiry
-    if (expiresAt < Date.now()) {
-      // Clear expired session
-      delete req.session.otpData;
-      return res.json({ success: false, message: "OTP expired. Please request a new one" });
-    }
-    // Find user
-    const userDoc = await user.findById(userId);
- 
-  
-    if (!userDoc) {
-      return res.json({ success: false, message: "User not found" });
-    }
+
+    if (expiresAt < Date.now())
+      return res.json({ success: false, message: "OTP expired. Please request a new one." });
 
     // Mark user as verified
+    const userDoc = await user.findById(userId);
+    if (!userDoc) return res.json({ success: false, message: "User not found" });
+
     userDoc.isVerified = true;
     await userDoc.save();
-    
-   //Clear OTP session
-     req.session.otpData=null;
 
-    req.session.save((err) => {
-  if (err) console.error("Error saving session after clearing OTP:", err);
-});
-    
-    // Generate JWT token
-    const token = jwt.sign(
-      { userId: userDoc._id },
-      process.env.JWTSECRET,
-      { expiresIn: "7d" }
-    );
-  
-    // Set cookie
+    // Clear cookie
+    res.clearCookie("otpData");
+
+    // Generate JWT
+    const token = jwt.sign({ userId: userDoc._id }, process.env.JWTSECRET, { expiresIn: "7d" });
     res.cookie("jwt", token, {
       maxAge: 7 * 24 * 60 * 60 * 1000,
       httpOnly: true,
-      sameSite: "strict",
       secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
     });
 
-    // Upsert user in Stream
-    try {
-      await streamClient.upsertUser({
-        id: userDoc._id.toString(),
-        name: userDoc.name || "Anonymous",
-        email: userDoc.email,
-        image: userDoc.avatar || undefined,
-      });
-
-      console.log(`User streamed for ${userDoc._id}`);
-    } catch (streamError) {
-      console.error("Error while upserting to stream:", streamError);
-      
-    }
-
-
-
-
-
-    return res.json({ 
-      success: true, 
-      message: isSignup ? "Account verified successfully! Welcome!" : "Email verified successfully!",
-      user: {
-        _id: userDoc._id,
-        name: userDoc.name,
-        email: userDoc.email,
-        isVerified: userDoc.isVerified
-      }
-    });
-
+    return res.json({ success: true, message: "Account verified!", user: userDoc });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
   }
