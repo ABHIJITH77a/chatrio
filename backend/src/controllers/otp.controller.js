@@ -56,25 +56,19 @@ export const otpgenerate = async (req, res) => {
 // ============ OTP VERIFICATION ============
 export const verifyotp = async (req, res) => {
   const userOtp  = req.body.dotp;
- 
+  const {email}=req.body
+ console.log("hello",email)
 
   try {
-    const otpData = req.session.otpData;
-    console.log("hi",req)
- 
-    if (!otpData) { 
-      return res.json({ success: false, message: "No OTP session found. Please request a new OTP" });
-    }
-
-    const { userId, email, otp, expiresAt, isSignup } = otpData;
-    console.log(otp)
-  
+    const currentUser=await user.findOne({email})
+   console.log(currentUser)
+   
     if (!userOtp) {
       return res.json({ success: false, message: "OTP is required" });
     }
 
     // Check OTP
-    if (userOtp.toString() !== otp.toString()) {
+    if (userOtp.toString() !== currentUser.otp.toString()) {
       return res.json({ success: false, message: "Invalid OTP" });
     }
     // Check expiry
