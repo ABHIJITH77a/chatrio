@@ -12,75 +12,54 @@ import {transporter} from "../configure/nodemailerConfigure.js"
  * - Saves pending email in cookie
  */
 export const signup = async (req, res) => {
-
   try {
-    const {  email, password } = req.body;
+    const { email, password } = req.body;
 
-    if ( !email || !password) {
+    if (!email || !password)
       return res.status(400).json({ success: false, message: "All fields are required" });
-    }
 
+    // Validate email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i;
-    if (!emailRegex.test(email)) {
-      return res.status(400).json({ success: false, message: "Invalid email format" });
-    }
+    if (!emailRegex.test(email)) return res.status(400).json({ success: false, message: "Invalid email" });
 
-    if (password.length < 6) {
-      return res.status(400).json({ success: false, message: "Password must be at least 6 characters" });
-    }
+    if (password.length < 6)
+      return res.status(400).json({ success: false, message: "Password too short" });
 
-    // Check if user already exists
     const existingUser = await user.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json({ success: false, message: "User already exists" });
-    }
+    if (existingUser) return res.status(400).json({ success: false, message: "User already exists" });
 
-    // Hash password
     const hashedPassword = await bcrypt.hash(password, 12);
 
-    
-    // Generate and send OTP
+    // Generate OTP
     const otp = Math.floor(100000 + Math.random() * 900000);
-    const expiresAt = Date.now() + 5 * 60 * 1000; // 5 minutes
+    const expiresAt = Date.now() + 5 * 60 * 1000;
 
-    
-
-    const mail = {
+    // Send OTP email
+    await transporter.sendMail({
       from: process.env.SENDER_EMAIL,
       to: email,
       subject: "Email Verification - OTP",
-      text: `Welcome to our platform! Your OTP for email verification is: ${otp}. This OTP will expire in 5 minutes.`
-    };
+      text: `Your OTP is ${otp}. Expires in 5 minutes.`,
+    });
 
-    await transporter.sendMail(mail);
-   
-    // Create new user (unverified)
+    // Create user (unverified)
     const newUser = new user({
       email,
       password: hashedPassword,
       isVerified: false,
-      isOnborded:false
+      isOnborded: false,
     });
-
     await newUser.save();
 
-// Store OTP in session
-    req.session.otpData = {
-      userId: newUser._id.toString(),
-      email,
-      otp,
-      expiresAt,
-      isSignup: true // Flag to identify this is for signup
-    };
-   
-
-
-    return res.json({ 
-      success: true, 
-      message: "Signup successful! OTP sent to your email for verification" ,
-      user:newUser._id
+    // Store OTP & email in **cookie**
+    res.cookie("otpData", JSON.stringify({ email, otp, expiresAt, userId: newUser._id.toString() }), {
+      maxAge: 5 * 60 * 1000, // 5 minutes
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
     });
 
+    return res.json({ success: true, message: "Signup successful! OTP sent to your email" });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
   }
