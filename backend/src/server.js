@@ -39,20 +39,17 @@ app.use(cors({
 
 
 
-
-app.use(
-  session({
-    secret: process.env.SESSION_SECRET, // keep in .env
-    resave: false, // don’t force resaving if nothing changed
-    saveUninitialized: false, // don’t save empty sessions
-    store: MongoStore.create({
-      mongoUrl: process.env.MONGO_URI, // your DB connection
-      collectionName: "sessions",      // sessions collection
-      ttl: 14 * 24 * 60 * 60           // session TTL (14 days)
-    }),
-  })
-);
-
+app.use(session({
+  secret: process.env.SESSION_SECRET || "supersecretkey",
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === "production", // true on Render
+    httpOnly: true,
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+    maxAge: 5 * 60 * 1000 // 5 minutes
+  }
+}));
 
 
 
