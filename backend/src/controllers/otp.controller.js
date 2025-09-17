@@ -78,11 +78,18 @@ export const verifyOtp = async (req, res) => {
     await currentUser.save();
 
     // ✅ Issue JWT
-    const token = jwt.sign(
-      { userId: currentUser._id },
-      process.env.JWTSECRET,
-      { expiresIn: "7d" }
-    );
+   let token;
+try {
+  token = jwt.sign(
+    { userId: currentUser._id },
+    process.env.JWTSECRET,
+    { expiresIn: "7d" }
+  );
+} catch (err) {
+  console.error("JWT Error:", err);
+  return res.status(500).json({ success: false, message: "JWT generation failed" });
+}
+
 
     res.cookie("jwt", token, {
       maxAge: 7 * 24 * 60 * 60 * 1000,
