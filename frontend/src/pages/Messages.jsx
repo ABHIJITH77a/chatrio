@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useRef,useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import useAuthUser from "../hooks/useAuthUser";
 import { useQuery } from "@tanstack/react-query";
@@ -16,7 +16,9 @@ const Messages = () => {
   const navigate = useNavigate();
   const { user } = useAuthUser();
 
-  const [chatClient, setChatClient] = useState(null);
+ const chatClientRef = useRef(null);
+
+
   const [channels, setChannels] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedUserId, setSelectedUserId] = useState(userId);
@@ -29,12 +31,14 @@ const Messages = () => {
 
   // Initialize chat client + fetch channels
   useEffect(() => {
-    const initChat = async () => {
-      if (!user?._id || !tokenData?.token) return;
+  const initChat = async () => {
+    if (!user?._id || !tokenData?.token) return;
 
-      try {
-        const client = StreamChat.getInstance(STREAM_API_KEY);
+    try {
+      const client = StreamChat.getInstance(STREAM_API_KEY);
 
+      // Prevent reconnecting the same client
+      if (!client.userID) {
         await client.connectUser(
           {
             id: user._id,
@@ -47,30 +51,33 @@ const Messages = () => {
           },
           tokenData.token
         );
-
-        const filter = { members: { $in: [user._id] } };
-        const sort = { last_message_at: -1 };
-        const channelList = await client.queryChannels(filter, sort, {
-          watch: true,
-          state: true,
-          presence: true,
-        });
-
-        setChatClient(client);
-        setChannels(channelList);
-      } catch (err) {
-        console.error("Error initializing chat:", err);
-      } finally {
-        setLoading(false);
       }
-    };
 
-    initChat();
+      const filter = { members: { $in: [user._id] } };
+      const sort = { last_message_at: -1 };
+      const channelList = await client.queryChannels(filter, sort, {
+        watch: true,
+        state: true,
+        presence: true,
+      });
 
-    return () => {
-      if (chatClient) chatClient.disconnectUser();
-    };
-  }, [tokenData?.token, user?._id]);
+      chatClientRef.current = client;
+      setChannels(channelList);
+    } catch (err) {
+      console.error("Error initializing chat:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  initChat();
+
+  return () => {
+    if (chatClientRef.current) {
+      chatClientRef.current.disconnectUser();
+    }
+  };
+}, [tokenData?.token, user?._id]);
 
   const handleFriendSelect = (friendId) => {
     setSelectedUserId(friendId);
