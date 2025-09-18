@@ -27,30 +27,34 @@ const Call = () => {
   const [call, setCall] = useState(null);
   const [isConnecting, setIsConnecting] = useState(true);
 
-  const { authUser, isLoading } = useAuthUser();
+  const { user, isLoading } = useAuthUser();
 
   const { data: tokenData } = useQuery({
     queryKey: ["streamToken"],
     queryFn: getStreamToken,
-    enabled: !!authUser,
+    enabled: !!user,
   });
 
   useEffect(() => {
     const initCall = async () => {
-      if (!tokenData.token || !authUser || !callId) return;
+      console.log(tokenData);
+      if (!tokenData?.token || !user || !callId) {
+        setIsConnecting(false);
+        return;
+      }
 
       try {
         console.log("Initializing Stream video client...");
 
-        const user = {
-          id: authUser._id,
-          name: authUser.fullName,
-          image: authUser.profilePic,
+        const streamUser = {
+          id: user._id,
+          name: user.fullName,
+          image: user.profilPic,
         };
 
         const videoClient = new StreamVideoClient({
           apiKey: STREAM_API_KEY,
-          user,
+          user: streamUser, // Changed from 'newuser' to 'user'
           token: tokenData.token,
         });
 
@@ -71,7 +75,14 @@ const Call = () => {
     };
 
     initCall();
-  }, [tokenData, authUser, callId]);
+
+    // Cleanup function to disconnect client when component unmounts
+    return () => {
+      if (client) {
+        client.disconnectUser();
+      }
+    };
+  }, [tokenData, user, callId]);
 
   if (isLoading || isConnecting) return <PageLoader />;
 
@@ -100,7 +111,7 @@ const CallContent = () => {
 
   const navigate = useNavigate();
 
-  if (callingState === CallingState.LEFT) return navigate("/");
+  if (callingState === CallingState.LEFT) return navigate("/messages");
 
   return (
     <StreamTheme>
@@ -110,4 +121,4 @@ const CallContent = () => {
   );
 };
 
-export default Call
+export default Call;

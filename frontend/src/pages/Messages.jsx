@@ -64,24 +64,41 @@ const Messages = () => {
         setError(null);
         setLoading(true);
 
+        // Get or create a new client instance
         client = StreamChat.getInstance(STREAM_API_KEY);
 
-        await client.connectUser(
-          {
-            id: user._id,
-            name: user.name || user.username || "Anonymous",
-            image:
-              user.profilePic ||
-              `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                user.name || "User"
-              )}&background=6366f1&color=fff`,
-          },
-          tokenData.token
-        );
+        // Check if user is already connected
+        if (client.userID && client.userID === user._id) {
+          console.log("User already connected to Stream Chat");
+        } else {
+          // Disconnect any existing connection first
+          if (client.userID) {
+            await client.disconnectUser();
+          }
+
+          // Connect the new user
+          await client.connectUser(
+            {
+              id: user._id,
+              name: user.name || user.username || "Anonymous",
+              image:
+                user.profilePic ||
+                `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                  user.name || "User"
+                )}&background=6366f1&color=fff`,
+            },
+            tokenData.token
+          );
+        }
 
         if (!isMounted) {
           await client.disconnectUser();
           return;
+        }
+
+        // Verify connection before querying channels
+        if (!client.userID) {
+          throw new Error("Failed to connect user to Stream Chat");
         }
 
         const filter = { members: { $in: [user._id] } };
@@ -102,9 +119,10 @@ const Messages = () => {
       } catch (err) {
         console.error("Error initializing chat:", err);
         if (isMounted) {
-          setError("Failed to initialize chat. Please try again.");
+          setError(`Failed to initialize chat: ${err.message}`);
         }
-        if (client) {
+        // Clean up on error
+        if (client && client.userID) {
           try {
             await client.disconnectUser();
           } catch (disconnectError) {
@@ -122,11 +140,12 @@ const Messages = () => {
 
     return () => {
       isMounted = false;
-      if (client) {
-        client.disconnectUser().catch(console.error);
+      // Clean up connection when component unmounts or dependencies change
+      if (chatClient && chatClient.userID) {
+        chatClient.disconnectUser().catch(console.error);
       }
     };
-  }, [tokenData?.token, user?._id, user?.name, user?.username, user?.profilePic]);
+  }, [tokenData?.token, user?._id]);
 
   // Handle friend selection with navigation
   const handleFriendSelect = useCallback((friendId) => {
@@ -139,9 +158,11 @@ const Messages = () => {
   const handleRetry = useCallback(() => {
     setError(null);
     setLoading(true);
-    // Trigger re-initialization by clearing and setting states
     setChatClient(null);
     setChannels([]);
+    
+    // Force a re-fetch of the token and re-initialization
+    window.location.reload();
   }, []);
 
   // Handle loading state
@@ -259,7 +280,7 @@ const Messages = () => {
                     <div className="relative">
                       <img
                         src={
-                          otherUser.profilPic ||
+                          otherUser.profilePic ||
                           `https://ui-avatars.com/api/?name=${encodeURIComponent(
                             otherUser.name || "User"
                           )}&background=6366f1&color=fff`

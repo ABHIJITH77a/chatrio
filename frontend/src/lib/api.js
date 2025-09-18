@@ -52,7 +52,7 @@ export const logout = async () => {
 export const getAuthUser = async () => {
   try {
     const res = await axiosInstance.get("/auth/me")
-    console.log(res.data)
+    console.log("hiiiiiiii",res.data)
     return res.data;
   } catch (error) {
     console.log("Error in getAuthUser:", error);
@@ -135,7 +135,7 @@ export const rejectreq = async (id) => {
 export const getStreamToken=async()=>{
   try{
   const res = await axiosInstance.get("/chat/token");
-
+   console.log("pppppppppppppppppppppppppppppppppppp",res.data)
   return res.data;
   }
   catch(error){

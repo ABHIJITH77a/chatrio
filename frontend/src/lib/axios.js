@@ -1,6 +1,6 @@
 import axios from"axios";
 
 export const axiosInstance=axios.create({
-    baseURL:"https://chatrio-qshq.onrender.com/api",
+    baseURL:"http://localhost:3001/api",
     withCredentials:true,
 })
