@@ -49,7 +49,6 @@ export default function Onboard() {
     },
   });
 
-  // ✅ FIXED: Conditional returns moved after all hooks
   if (isLoading) {
     return <div className="text-center text-white">Loading...</div>;
   }
@@ -93,7 +92,7 @@ export default function Onboard() {
     if (file) {
       formData.append("avatar", file);
     } else {
-      formData.append("avatar", user.avatar);
+      formData.append("avatar", user.profilPic);
     }
 
     mutate(formData);
