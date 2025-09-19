@@ -233,7 +233,7 @@ export default function Onboard() {
           </div>
         </div>
       </div>
-      <Toaster position="top-right" reverseOrder={false} />
+      
     </div>
   );
 }
