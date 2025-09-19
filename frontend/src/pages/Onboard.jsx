@@ -2,7 +2,7 @@ import { useState, useEffect } from "react"
 import { useMutation } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
 import { onboard, updateProfile } from "../lib/api"
-import toast, { Toaster } from "react-hot-toast"
+import toast from "react-hot-toast"
 import useAuthUser from "../hooks/useAuthUser"
 
 export default function Onboard() {
