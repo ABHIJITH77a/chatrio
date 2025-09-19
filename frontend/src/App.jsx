@@ -45,7 +45,19 @@ const App = () => {
 
 
 
- <Toaster position="top-right" reverseOrder={false} />
+ <Toaster
+  position="top-right"
+  reverseOrder={false}
+  toastOptions={{
+    duration: 3000, 
+    success: {
+      duration: 2500,
+    },
+    error: {
+      duration: 4000,
+    },
+  }}
+/>
 
     </div>
   )
