@@ -91,9 +91,7 @@ export default function Onboard() {
 
     if (file) {
       formData.append("avatar", file);
-    } else {
-      formData.append("avatar", user.profilPic);
-    }
+    } 
 
     mutate(formData);
   };
