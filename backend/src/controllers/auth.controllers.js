@@ -1,7 +1,7 @@
 import user from "../models/user.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import streamClient from "../lib/stream.js";
+import {upsertStreamUser} from "../lib/stream.js";
 import cloudinary from "../configure/cloudinary.js";
 import { transporter } from "../configure/nodemailerConfigure.js";
 
@@ -73,6 +73,7 @@ export const login = async (req, res) => {
       secure: process.env.NODE_ENV === "production",
       sameSite: "none",
       maxAge: 7 * 24 * 60 * 60 * 1000,
+      secure:true
     });
 
     findUser.isLogged = true;
@@ -116,27 +117,30 @@ export const onboard = async (req, res) => {
       avatarUrl = uploadResponse.secure_url;
     }
 
+    if(avatarUrl){
+      currentUser.profilPic=avatarUrl
+    }
+    await currentUser.save()
+
     const updatedUser = await user.findByIdAndUpdate(
       currentUser._id,
-      { name, bio, nativeLanguage, learningLanguage, profilPic: avatarUrl, isOnborded: true },
+      { name, bio, nativeLanguage, learningLanguage, isOnborded: true },
       { new: true }
     );
     await updatedUser.save();
 
-    const upsertStreamUser = async (newUser) => {
-      try {
-        await streamClient.upsertUser({
-          id: newUser.id.toString(),
-          name: newUser.name || "Anonymous",
-          email: newUser.email,
-          image: newUser.profilPic || undefined,
-        });
-      } catch (error) {
-        console.error("Error while upserting", error);
-      }
-    };
+   try {
+      await upsertStreamUser({
+        id: newUser._id.toString(),
+        name: newUser.fullName,
+        image: newUser.profilePic || "",
+      });
+      console.log(`Stream user created for ${newUser.fullName}`);
+    } catch (error) {
+      console.log("Error creating Stream user:", error);
+    }
 
-    upsertStreamUser(updatedUser);
+
 
     res.json({ success: true, message: "Bio updated" });
   } catch (error) {

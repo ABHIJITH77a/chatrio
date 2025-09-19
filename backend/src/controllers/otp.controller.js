@@ -1,5 +1,7 @@
 import user from "../models/user.js";
-import streamClient from "../lib/stream.js";
+import {upsertStreamUser
+  
+} from "../lib/stream.js";
 import jwt from "jsonwebtoken";
 import { transporter } from "../configure/nodemailerConfigure.js";
 
@@ -96,12 +98,24 @@ export const verifyOtp = async (req, res) => {
     });
 
     // Upsert user in Stream
-    await streamClient.upsertUser({
-      id: currentUser._id.toString(),
+
+ try {
+      await upsertStreamUser({
+        id: currentUser._id.toString(),
       name: currentUser.name || "Anonymous",
       email: currentUser.email,
-      image: currentUser.avatar || undefined,
-    });
+      image: currentUser.profilPic || undefined,
+      });
+      console.log(`Stream user created for ${newUser.fullName}`);
+    } catch (error) {
+      console.log("Error creating Stream user:", error);
+    }
+
+
+
+
+
+
 
     return res.json({
       success: true,
